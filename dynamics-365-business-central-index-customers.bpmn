@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" id="Definitions_0sdny8d" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.2.0">
+  <bpmn:collaboration id="Collaboration_1fu9xqd">
+    <bpmn:participant id="Participant_078kl27" name="INDEX CUSTOMERS" processRef="dynamics-365-business-central-index-customers" />
+  </bpmn:collaboration>
+  <bpmn:process id="dynamics-365-business-central-index-customers" name="Onify Blueprint: Index customers from Dynamics 365 Business Central" isExecutable="true">
+    <bpmn:laneSet id="LaneSet_0w0j6jp">
+      <bpmn:lane id="Lane_0xbladg" name="ONIFY">
+        <bpmn:flowNodeRef>getAzureCredentials</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>start</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>transformCustomers</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>indexItems</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>moreCustomers</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>end</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_1vbezlk" name="BUSINESS CENTRAL">
+        <bpmn:flowNodeRef>generateAccessToken</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>getCustomers</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:serviceTask id="generateAccessToken" name="Generate Azure access token">
+      <bpmn:extensionElements>
+        <camunda:connector>
+          <camunda:inputOutput>
+            <camunda:inputParameter name="form">
+              <camunda:map>
+                <camunda:entry key="client_id">${environment.output.azureCredentials.client_id}</camunda:entry>
+                <camunda:entry key="scope">https://api.businesscentral.dynamics.com/.default</camunda:entry>
+                <camunda:entry key="client_secret">${environment.output.azureCredentials.client_secret}</camunda:entry>
+                <camunda:entry key="grant_type">client_credentials</camunda:entry>
+              </camunda:map>
+            </camunda:inputParameter>
+            <camunda:inputParameter name="responseType">json</camunda:inputParameter>
+            <camunda:inputParameter name="method">POST</camunda:inputParameter>
+            <camunda:inputParameter name="headers">
+              <camunda:map>
+                <camunda:entry key="Content-Type">application/x-www-form-urlencoded</camunda:entry>
+              </camunda:map>
+            </camunda:inputParameter>
+            <camunda:inputParameter name="url">https://login.microsoftonline.com/${environment.output.azureCredentials.tenant}/oauth2/v2.0/token</camunda:inputParameter>
+          </camunda:inputOutput>
+          <camunda:connectorId>httpRequest</camunda:connectorId>
+        </camunda:connector>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="state">
+            <camunda:script scriptFormat="js">next(null, {name: content.name, id: content.id});</camunda:script>
+          </camunda:inputParameter>
+          <camunda:outputParameter name="accessToken">${content.output.body.access_token}</camunda:outputParameter>
+          <camunda:outputParameter name="state">
+            <camunda:script scriptFormat="js">next(null, {id: content.id, result: {done: true}});</camunda:script>
+          </camunda:outputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_0gaktxo</bpmn:incoming>
+      <bpmn:outgoing>Flow_0t7vdw4</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="getAzureCredentials" name="Get Azure credentials">
+      <bpmn:extensionElements>
+        <camunda:connector>
+          <camunda:inputOutput>
+            <camunda:inputParameter name="url">/my/config/settings/_azure_credentials</camunda:inputParameter>
+          </camunda:inputOutput>
+          <camunda:connectorId>onifyApiRequest</camunda:connectorId>
+        </camunda:connector>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="state">
+            <camunda:script scriptFormat="js">next(null, {name: content.name, id: content.id});</camunda:script>
+          </camunda:inputParameter>
+          <camunda:outputParameter name="azureCredentials">${content.output.body.value}</camunda:outputParameter>
+          <camunda:outputParameter name="state">
+            <camunda:script scriptFormat="js">next(null, {id: content.id, result: {done: true}});</camunda:script>
+          </camunda:outputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_0wk332j</bpmn:incoming>
+      <bpmn:outgoing>Flow_0gaktxo</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:startEvent id="start" name="Index customers">
+      <bpmn:outgoing>Flow_0wk332j</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="getCustomers" name="Get customers">
+      <bpmn:extensionElements>
+        <camunda:connector>
+          <camunda:inputOutput>
+            <camunda:inputParameter name="responseType">json</camunda:inputParameter>
+            <camunda:inputParameter name="headers">
+              <camunda:map>
+                <camunda:entry key="Authorization">Bearer ${environment.output.accessToken}</camunda:entry>
+                <camunda:entry key="Prefer">odata.maxpagesize=5</camunda:entry>
+              </camunda:map>
+            </camunda:inputParameter>
+            <camunda:inputParameter name="url">
+              <camunda:script scriptFormat="js">const url = environment.output.nextLink ? environment.output.nextLink : 'https://api.businesscentral.dynamics.com/v2.0/production/api/v2.0/companies(dd1c0efb-a627-ed11-9dba-000d3a2988dc)/customers';
+
+next(null, url);</camunda:script>
+            </camunda:inputParameter>
+            <camunda:inputParameter name="throwHttpErrors">${false}</camunda:inputParameter>
+            <camunda:inputParameter name="method">GET</camunda:inputParameter>
+          </camunda:inputOutput>
+          <camunda:connectorId>httpRequest</camunda:connectorId>
+        </camunda:connector>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="setCustomerCount">
+            <camunda:script scriptFormat="js">environment.output.customerCount = (environment.output.customerCount &gt; 0) ? environment.output.customerCount : 0;
+next();</camunda:script>
+          </camunda:inputParameter>
+          <camunda:outputParameter name="customers">${content.output.body.value}</camunda:outputParameter>
+          <camunda:outputParameter name="nextLink">
+            <camunda:script scriptFormat="js">next(null, content.output.body['@odata.nextLink']);</camunda:script>
+          </camunda:outputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_0t7vdw4</bpmn:incoming>
+      <bpmn:incoming>Flow_00oyjg6</bpmn:incoming>
+      <bpmn:outgoing>Flow_07nd58u</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_00oyjg6" name="Get more customers" sourceRef="moreCustomers" targetRef="getCustomers">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${environment.output.nextLink}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_0d288n4" sourceRef="indexItems" targetRef="moreCustomers" />
+    <bpmn:sequenceFlow id="Flow_134fg0k" sourceRef="transformCustomers" targetRef="indexItems" />
+    <bpmn:sequenceFlow id="Flow_0a110do" name="No more customers" sourceRef="moreCustomers" targetRef="end" />
+    <bpmn:sequenceFlow id="Flow_07nd58u" sourceRef="getCustomers" targetRef="transformCustomers" />
+    <bpmn:sequenceFlow id="Flow_0t7vdw4" sourceRef="generateAccessToken" targetRef="getCustomers" />
+    <bpmn:sequenceFlow id="Flow_0gaktxo" sourceRef="getAzureCredentials" targetRef="generateAccessToken" />
+    <bpmn:sequenceFlow id="Flow_0wk332j" sourceRef="start" targetRef="getAzureCredentials" />
+    <bpmn:scriptTask id="transformCustomers" name="Transform customers" scriptFormat="javascript" camunda:resultVariable="itemsToIndex">
+      <bpmn:incoming>Flow_07nd58u</bpmn:incoming>
+      <bpmn:outgoing>Flow_134fg0k</bpmn:outgoing>
+      <bpmn:script>if (!environment.output.customers) {
+    next(null, []);
+}
+
+const itemsToIndex = [];
+environment.output.customers.forEach(async function(customer) {
+    const itemToIndex = {
+        type: "customer",
+        key: customer.id.replace(/[-]/g, ''),
+        name: customer.displayName,
+        tag: ["dynamics365", "customer"],
+        attribute: {
+            _id: customer.id,
+            number: customer.number,
+            type: customer.type,
+            addressline1: customer.addressLine1,
+            addressline2: customer.addressLine2,
+            city: customer.city,
+            state: customer.state,
+            country: customer.country,
+            postalcode: customer.postalCode,
+            phonenumber: customer.phoneNumber,
+            email: customer.email,
+            website: customer.website,
+            currencycode: customer.currencyCode,
+            _lastmodifieddatetime: customer.lastModifiedDateTime
+        }
+    };
+    itemsToIndex.push(itemToIndex);
+    environment.output.customerCount++;
+})
+
+next(null, itemsToIndex);</bpmn:script>
+    </bpmn:scriptTask>
+    <bpmn:serviceTask id="indexItems" name="Index items">
+      <bpmn:extensionElements>
+        <camunda:connector>
+          <camunda:inputOutput>
+            <camunda:inputParameter name="payload">${environment.output.itemsToIndex}</camunda:inputParameter>
+            <camunda:inputParameter name="method">POST</camunda:inputParameter>
+            <camunda:inputParameter name="url">/admin/bulk/items</camunda:inputParameter>
+          </camunda:inputOutput>
+          <camunda:connectorId>onifyApiRequest</camunda:connectorId>
+        </camunda:connector>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="state">
+            <camunda:script scriptFormat="js">next(null, {name: content.name, id: content.id});</camunda:script>
+          </camunda:inputParameter>
+          <camunda:outputParameter name="state">
+            <camunda:script scriptFormat="js">next(null, {
+  id: content.id,
+  result: {
+    statusmessage: `Indexed ${environment.output.customerCount} customers`
+  }
+});</camunda:script>
+          </camunda:outputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_134fg0k</bpmn:incoming>
+      <bpmn:outgoing>Flow_0d288n4</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="moreCustomers" default="Flow_0a110do">
+      <bpmn:incoming>Flow_0d288n4</bpmn:incoming>
+      <bpmn:outgoing>Flow_0a110do</bpmn:outgoing>
+      <bpmn:outgoing>Flow_00oyjg6</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="end" name="Customers indexed">
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="state">
+            <camunda:script scriptFormat="js">next(null, {
+  id: 'indexItems',
+  result: {
+	done: true
+  }
+});</camunda:script>
+          </camunda:inputParameter>
+          <camunda:inputParameter name="clearOutput">
+            <camunda:script scriptFormat="js">// Do not bloat flow state
+environment.output.customers = [];
+environment.output.itemsToIndex = [];
+
+// Do not save secrets in state
+environment.output.azureCredentials = {};
+
+next();</camunda:script>
+          </camunda:inputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_0a110do</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_1fu9xqd">
+      <bpmndi:BPMNShape id="Participant_078kl27_di" bpmnElement="Participant_078kl27" isHorizontal="true">
+        <dc:Bounds x="160" y="100" width="1410" height="460" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_1vbezlk_di" bpmnElement="Lane_1vbezlk" isHorizontal="true">
+        <dc:Bounds x="190" y="305" width="1380" height="255" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_0xbladg_di" bpmnElement="Lane_0xbladg" isHorizontal="true">
+        <dc:Bounds x="190" y="100" width="1380" height="205" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="BPMNEdge_08f6bx0" bpmnElement="Flow_0wk332j">
+        <di:waypoint x="288" y="200" />
+        <di:waypoint x="400" y="200" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_101pbih" bpmnElement="Flow_0gaktxo">
+        <di:waypoint x="500" y="200" />
+        <di:waypoint x="538" y="200" />
+        <di:waypoint x="538" y="400" />
+        <di:waypoint x="576" y="400" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_008iq85" bpmnElement="Flow_0t7vdw4">
+        <di:waypoint x="676" y="400" />
+        <di:waypoint x="746" y="400" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_1i40hrw" bpmnElement="Flow_07nd58u">
+        <di:waypoint x="846" y="400" />
+        <di:waypoint x="883" y="400" />
+        <di:waypoint x="883" y="200" />
+        <di:waypoint x="920" y="200" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0a110do_di" bpmnElement="Flow_0a110do">
+        <di:waypoint x="1315" y="200" />
+        <di:waypoint x="1462" y="200" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1345" y="166" width="52" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_134fg0k_di" bpmnElement="Flow_134fg0k">
+        <di:waypoint x="1020" y="200" />
+        <di:waypoint x="1090" y="200" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0d288n4_di" bpmnElement="Flow_0d288n4">
+        <di:waypoint x="1190" y="200" />
+        <di:waypoint x="1265" y="200" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_00oyjg6_di" bpmnElement="Flow_00oyjg6">
+        <di:waypoint x="1290" y="225" />
+        <di:waypoint x="1290" y="500" />
+        <di:waypoint x="796" y="500" />
+        <di:waypoint x="796" y="440" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1224" y="246" width="52" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="BPMNShape_0175f74" bpmnElement="generateAccessToken">
+        <dc:Bounds x="576" y="360" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BPMNShape_1s4pohz" bpmnElement="getAzureCredentials">
+        <dc:Bounds x="400" y="160" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BPMNShape_0oowhps" bpmnElement="start" bioc:stroke="#43a047" bioc:fill="#c8e6c9" color:background-color="#c8e6c9" color:border-color="#43a047">
+        <dc:Bounds x="252" y="182" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="230" y="225" width="82" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BPMNShape_0wgiiis" bpmnElement="getCustomers">
+        <dc:Bounds x="746" y="360" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_0v82xsa_di" bpmnElement="transformCustomers">
+        <dc:Bounds x="920" y="160" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_03ti1bi_di" bpmnElement="indexItems">
+        <dc:Bounds x="1090" y="160" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_0mzmmwc_di" bpmnElement="moreCustomers" isMarkerVisible="true">
+        <dc:Bounds x="1265" y="175" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BPMNShape_0jkuwzr" bpmnElement="end" bioc:stroke="#e53935" bioc:fill="#ffcdd2" color:background-color="#ffcdd2" color:border-color="#e53935">
+        <dc:Bounds x="1462" y="182" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1453" y="225" width="54" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

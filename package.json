@@ -1,0 +1,39 @@
+{
+  "name": "@onify/blueprint-dynamics-365-business-central-index-customers",
+  "version": "0.0.1",
+  "description": "Onify Blueprint: Index customers from Dynamics 365 Business Central",
+  "scripts": {
+    "test": "mocha",
+    "posttest": "eslint . --cache"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/onify/blueprint-dynamics-365-business-central-index-customers.git"
+  },
+  "keywords": [
+    "onify",
+    "blueprint",
+    "dynamics365",
+    "microsoft",
+    "bpmn"
+  ],
+  "author": {
+    "name": "Onify",
+    "url": "https://github.com/onify"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/onify/blueprint-dynamics-365-business-central-index-customers/issues"
+  },
+  "homepage": "https://github.com/onify/blueprint-dynamics-365-business-central-index-customers#readme",
+  "devDependencies": {
+    "@onify/flow-validator": "^0.0.3",
+    "chai": "^4.3.4",
+    "cron": "^2.1.0",
+    "eslint": "^8.2.0",
+    "mocha": "^10.0.0"
+  },
+  "files": [
+    "blueprint-dynamics-365-business-central-index-customers.bpmn"
+  ]
+}
