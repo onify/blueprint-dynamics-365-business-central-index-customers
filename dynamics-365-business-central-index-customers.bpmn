@@ -161,7 +161,7 @@ environment.output.customers.forEach(async function(customer) {
 
 next(null, itemsToIndex);</bpmn:script>
     </bpmn:scriptTask>
-    <bpmn:serviceTask id="indexItems" name="Index items">
+    <bpmn:serviceTask id="indexItems" name="Index customers">
       <bpmn:extensionElements>
         <camunda:connector>
           <camunda:inputOutput>
